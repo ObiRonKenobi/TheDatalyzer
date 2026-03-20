@@ -21,7 +21,7 @@ import {
   PieChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { fetchMultiSeriesData, ENTITIES, INDICATORS, fetchCountries } from './services/dataService';
+import { fetchMultiSeriesData, ENTITIES, INDICATORS, fetchCountries, US_POLITICAL_HISTORY } from './services/dataService';
 import { DataPoint, ChartConfig, SeriesConfig, DataCategory, Entity } from './types';
 import ChartView from './components/ChartView';
 
@@ -108,7 +108,14 @@ export default function App() {
     
     if (newEntities.length > 0) setSelectedEntityCodes([newEntities[0].code]);
     if (newIndicators.length > 0) setSelectedIndicatorIds([newIndicators[0].id]);
-    setComparisonMode('entity');
+
+    if (newEntities.length > 1 && newIndicators.length > 1) {
+      setComparisonMode('entity');
+    } else if (newIndicators.length > 1) {
+      setComparisonMode('indicator');
+    } else {
+      setComparisonMode('entity');
+    }
     
     // Reset time range based on category
     if (category === 'public' || category === 'owid' || category === 'nasa') {
@@ -211,7 +218,8 @@ export default function App() {
       xAxisLabel: 'Year',
       yAxisLabel: indicatorName ? `${indicatorName}${indicatorUnit}` : 'Value',
       yAxisLabelRight,
-      series
+      series,
+      politicalPeriods: category === 'politics' || (category === 'usgov' && selectedEntityCodes.includes('USA_GOV')) ? US_POLITICAL_HISTORY : undefined
     };
   }, [comparisonMode, selectedEntityCodes, selectedIndicatorIds, chartType, customColors]);
 
@@ -344,6 +352,17 @@ export default function App() {
                 <PieChart className="w-3.5 h-3.5" />
                 Tableau
               </button>
+              <button
+                onClick={() => setCategory('politics')}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                  category === 'politics' 
+                    ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                US Politics
+              </button>
             </div>
           </section>
 
@@ -380,110 +399,116 @@ export default function App() {
           </AnimatePresence>
 
           {/* Comparison Mode */}
-          <section className="space-y-4">
-            <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-              <Layers className="w-3 h-3" />
-              Compare Mode
-            </div>
-            <div className="flex p-1 bg-slate-800 rounded-xl border border-slate-700">
-              <button
-                onClick={() => {
-                  setComparisonMode('entity');
-                  setSelectedIndicatorIds([selectedIndicatorIds[0]]);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                  comparisonMode === 'entity' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                {category === 'public' ? 'Countries' : 'Teams'}
-              </button>
-              <button
-                onClick={() => {
-                  setComparisonMode('indicator');
-                  setSelectedEntityCodes([selectedEntityCodes[0]]);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                  comparisonMode === 'indicator' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'
-                }`}
-              >
-                Metrics
-              </button>
-            </div>
-          </section>
+          {filteredEntities.length > 1 && filteredIndicators.length > 1 && (
+            <section className="space-y-4">
+              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                <Layers className="w-3 h-3" />
+                Compare Mode
+              </div>
+              <div className="flex p-1 bg-slate-800 rounded-xl border border-slate-700">
+                <button
+                  onClick={() => {
+                    setComparisonMode('entity');
+                    setSelectedIndicatorIds([selectedIndicatorIds[0]]);
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    comparisonMode === 'entity' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  {category === 'public' ? 'Countries' : 'Teams'}
+                </button>
+                <button
+                  onClick={() => {
+                    setComparisonMode('indicator');
+                    setSelectedEntityCodes([selectedEntityCodes[0]]);
+                  }}
+                  className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
+                    comparisonMode === 'indicator' ? 'bg-slate-700 text-emerald-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'
+                  }`}
+                >
+                  Metrics
+                </button>
+              </div>
+            </section>
+          )}
 
           {/* Selection */}
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                <Globe className="w-3 h-3" />
-                {comparisonMode === 'entity' ? (category === 'public' ? 'Select Countries' : 'Select Teams') : (category === 'public' ? 'Select Country' : 'Select Team')}
+          {filteredEntities.length > 1 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <Globe className="w-3 h-3" />
+                  {comparisonMode === 'entity' ? (category === 'public' ? 'Select Countries' : 'Select Teams') : (category === 'public' ? 'Select Country' : 'Select Team')}
+                </div>
+                <div className="relative group">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 group-focus-within:text-emerald-500 transition-colors" />
+                  <input 
+                    type="text"
+                    placeholder="Search..."
+                    value={entitySearch}
+                    onChange={(e) => setEntitySearch(e.target.value)}
+                    className="bg-slate-800/50 border border-slate-700 rounded-lg pl-7 pr-2 py-1 text-[10px] w-24 focus:w-32 focus:border-emerald-500 outline-none transition-all text-slate-300 placeholder:text-slate-600"
+                  />
+                </div>
               </div>
-              <div className="relative group">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 group-focus-within:text-emerald-500 transition-colors" />
-                <input 
-                  type="text"
-                  placeholder="Search..."
-                  value={entitySearch}
-                  onChange={(e) => setEntitySearch(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg pl-7 pr-2 py-1 text-[10px] w-24 focus:w-32 focus:border-emerald-500 outline-none transition-all text-slate-300 placeholder:text-slate-600"
-                />
+              <div className="max-h-48 overflow-y-auto bg-slate-800/50 border border-slate-800 rounded-xl p-2 space-y-1 custom-scrollbar">
+                {filteredEntities.map(e => (
+                  <button
+                    key={e.code}
+                    onClick={() => toggleSelection(e.code, 'entity')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
+                      selectedEntityCodes.includes(e.code)
+                        ? 'bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20'
+                        : 'hover:bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <div className="flex flex-col items-start">
+                      <span>{e.name}</span>
+                      {e.subCategory && <span className="text-[9px] opacity-50 font-mono uppercase">{e.subCategory}</span>}
+                    </div>
+                    {selectedEntityCodes.includes(e.code) && <Check className="w-3.5 h-3.5" />}
+                  </button>
+                ))}
               </div>
-            </div>
-            <div className="max-h-48 overflow-y-auto bg-slate-800/50 border border-slate-800 rounded-xl p-2 space-y-1 custom-scrollbar">
-              {filteredEntities.map(e => (
-                <button
-                  key={e.code}
-                  onClick={() => toggleSelection(e.code, 'entity')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs transition-all ${
-                    selectedEntityCodes.includes(e.code)
-                      ? 'bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20'
-                      : 'hover:bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <div className="flex flex-col items-start">
-                    <span>{e.name}</span>
-                    {e.subCategory && <span className="text-[9px] opacity-50 font-mono uppercase">{e.subCategory}</span>}
-                  </div>
-                  {selectedEntityCodes.includes(e.code) && <Check className="w-3.5 h-3.5" />}
-                </button>
-              ))}
-            </div>
-          </section>
+            </section>
+          )}
 
-          <section className="space-y-3">
-            <div className="flex items-center justify-between gap-2">
-              <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
-                <Database className="w-3 h-3" />
-                {comparisonMode === 'indicator' ? 'Select Metrics' : 'Select Metric'}
+          {filteredIndicators.length > 1 && (
+            <section className="space-y-3">
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 text-xs font-bold text-slate-500 uppercase tracking-widest">
+                  <Database className="w-3 h-3" />
+                  {comparisonMode === 'indicator' ? 'Select Metrics' : 'Select Metric'}
+                </div>
+                <div className="relative group">
+                  <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 group-focus-within:text-emerald-500 transition-colors" />
+                  <input 
+                    type="text"
+                    placeholder="Search..."
+                    value={indicatorSearch}
+                    onChange={(e) => setIndicatorSearch(e.target.value)}
+                    className="bg-slate-800/50 border border-slate-700 rounded-lg pl-7 pr-2 py-1 text-[10px] w-24 focus:w-32 focus:border-emerald-500 outline-none transition-all text-slate-300 placeholder:text-slate-600"
+                  />
+                </div>
               </div>
-              <div className="relative group">
-                <Search className="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-slate-600 group-focus-within:text-emerald-500 transition-colors" />
-                <input 
-                  type="text"
-                  placeholder="Search..."
-                  value={indicatorSearch}
-                  onChange={(e) => setIndicatorSearch(e.target.value)}
-                  className="bg-slate-800/50 border border-slate-700 rounded-lg pl-7 pr-2 py-1 text-[10px] w-24 focus:w-32 focus:border-emerald-500 outline-none transition-all text-slate-300 placeholder:text-slate-600"
-                />
+              <div className="max-h-48 overflow-y-auto bg-slate-800/50 border border-slate-800 rounded-xl p-2 space-y-1 custom-scrollbar">
+                {filteredIndicators.map(i => (
+                  <button
+                    key={i.id}
+                    onClick={() => toggleSelection(i.id, 'indicator')}
+                    className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left transition-all ${
+                      selectedIndicatorIds.includes(i.id)
+                        ? 'bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20'
+                        : 'hover:bg-slate-800 text-slate-400'
+                    }`}
+                  >
+                    <span className="truncate">{i.name}</span>
+                    {selectedIndicatorIds.includes(i.id) && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
+                  </button>
+                ))}
               </div>
-            </div>
-            <div className="max-h-48 overflow-y-auto bg-slate-800/50 border border-slate-800 rounded-xl p-2 space-y-1 custom-scrollbar">
-              {filteredIndicators.map(i => (
-                <button
-                  key={i.id}
-                  onClick={() => toggleSelection(i.id, 'indicator')}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-xs text-left transition-all ${
-                    selectedIndicatorIds.includes(i.id)
-                      ? 'bg-emerald-500/10 text-emerald-400 font-bold border border-emerald-500/20'
-                      : 'hover:bg-slate-800 text-slate-400'
-                  }`}
-                >
-                  <span className="truncate">{i.name}</span>
-                  {selectedIndicatorIds.includes(i.id) && <Check className="w-3.5 h-3.5 flex-shrink-0" />}
-                </button>
-              ))}
-            </div>
-          </section>
+            </section>
+          )}
 
           {/* Time Range */}
           <section className="space-y-4 pt-6 border-t border-slate-800">

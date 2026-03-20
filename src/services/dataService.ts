@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { DataPoint, Indicator, Entity, DataCategory } from '../types';
+import { DataPoint, Indicator, Entity, DataCategory, PoliticalPeriod } from '../types';
 
 // World Bank API Service
 export const fetchCountries = async (): Promise<Entity[]> => {
@@ -74,10 +74,8 @@ const getHistoricalSportsData = (teamCode: string, indicatorId: string, seriesKe
 
 export const fetchNasaData = async (indicatorId: string, seriesKey: string): Promise<DataPoint[]> => {
   try {
-    let url = '';
     if (indicatorId === 'temp') {
-      url = 'https://climate.nasa.gov/system/internal_resources/details/original/647_Global_Temperature_Data_File.txt';
-      const response = await axios.get(url);
+      const response = await axios.get(`/api/nasa/temp`);
       const lines = response.data.split('\n');
       return lines.slice(5).map((line: string) => {
         const parts = line.trim().split(/\s+/);
@@ -85,8 +83,7 @@ export const fetchNasaData = async (indicatorId: string, seriesKey: string): Pro
         return { year: parseInt(parts[0]), [seriesKey]: parseFloat(parts[1]) };
       }).filter((d: any) => d !== null && !isNaN(d.year));
     } else if (indicatorId === 'co2') {
-      url = 'https://climate.nasa.gov/system/internal_resources/details/original/2507_co2_data_mlo.txt';
-      const response = await axios.get(url);
+      const response = await axios.get(`/api/nasa/co2`);
       const lines = response.data.split('\n');
       return lines.filter((l: string) => !l.startsWith('#')).map((line: string) => {
         const parts = line.trim().split(/\s+/);
@@ -111,18 +108,7 @@ export const fetchNasaData = async (indicatorId: string, seriesKey: string): Pro
 
 export const fetchOwidData = async (indicatorId: string, seriesKey: string): Promise<DataPoint[]> => {
   try {
-    const urls: { [key: string]: string } = {
-      'life-expectancy': 'https://raw.githubusercontent.com/owid/owid-datasets/master/datasets/Life%20expectancy%20-%20OWID/Life%20expectancy%20-%20OWID.csv',
-      'poverty': 'https://raw.githubusercontent.com/owid/owid-datasets/master/datasets/Poverty%20data%20-%20World%20Bank/Poverty%20data%20-%20World%20Bank.csv',
-      'energy': 'https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv',
-      'literacy': 'https://raw.githubusercontent.com/owid/owid-datasets/master/datasets/Literacy%20rates%20-%20OWID/Literacy%20rates%20-%20OWID.csv',
-      'renewable-share': 'https://raw.githubusercontent.com/owid/energy-data/master/owid-energy-data.csv'
-    };
-
-    const url = urls[indicatorId];
-    if (!url) return getHistoricalSportsData('OWID', indicatorId, seriesKey);
-
-    const response = await axios.get(url);
+    const response = await axios.get(`/api/owid/${indicatorId}`);
     const lines = response.data.split('\n');
     const header = lines[0].split(',');
     
@@ -156,7 +142,7 @@ export const fetchOwidData = async (indicatorId: string, seriesKey: string): Pro
 export const fetchUsGovData = async (indicatorId: string, seriesKey: string): Promise<DataPoint[]> => {
   try {
     if (indicatorId === 'debt') {
-      const response = await axios.get('https://api.fiscaldata.treasury.gov/services/api/fiscal_service/v2/accounting/od/debt_to_the_penny?sort=-record_date&limit=100');
+      const response = await axios.get('/api/us-debt');
       const data = response.data.data;
       const yearlyData: { [key: number]: number } = {};
       data.forEach((item: any) => {
@@ -223,6 +209,24 @@ export const fetchTableauData = async (indicatorId: string, seriesKey: string): 
   }
 };
 
+export const fetchPoliticalData = async (indicatorId: string, seriesKey: string): Promise<DataPoint[]> => {
+  const data: DataPoint[] = [];
+  US_POLITICAL_HISTORY.forEach(period => {
+    for (let year = period.startYear; year <= period.endYear; year++) {
+      let value = 0;
+      if (indicatorId === 'presidency') {
+        value = period.party === 'Democrat' ? 1 : period.party === 'Republican' ? 2 : 0;
+      } else if (indicatorId === 'senate') {
+        value = period.senateControl === 'Democrat' ? 1 : period.senateControl === 'Republican' ? 2 : 0;
+      } else if (indicatorId === 'house') {
+        value = period.houseControl === 'Democrat' ? 1 : period.houseControl === 'Republican' ? 2 : 0;
+      }
+      data.push({ year, [seriesKey]: value });
+    }
+  });
+  return data;
+};
+
 export const fetchMultiSeriesData = async (
   requests: { entityCode: string; indicatorId: string; seriesKey: string; category: DataCategory }[]
 ): Promise<DataPoint[]> => {
@@ -241,6 +245,8 @@ export const fetchMultiSeriesData = async (
           return fetchTableauData(req.indicatorId, req.seriesKey);
         case 'sports':
           return getHistoricalSportsData(req.entityCode, req.indicatorId, req.seriesKey);
+        case 'politics':
+          return fetchPoliticalData(req.indicatorId, req.seriesKey);
         default:
           return [];
       }
@@ -304,7 +310,10 @@ export const INDICATORS: Indicator[] = [
   { id: 'internet', name: 'Internet Users (%)', source: 'Tableau', category: 'tableau', unit: '%' },
   { id: 'urban-pop', name: 'Urban Population (%)', source: 'Tableau', category: 'tableau', unit: '%' },
   { id: 'forest-area', name: 'Forest Area (% of Land)', source: 'Tableau', category: 'tableau', unit: '%' },
-  
+  // Politics
+  { id: 'presidency', name: 'Presidency Control', source: 'Historical', category: 'politics' },
+  { id: 'senate', name: 'Senate Control', source: 'Historical', category: 'politics' },
+  { id: 'house', name: 'House Control', source: 'Historical', category: 'politics' },
   // Sports Data
   { id: 'wins', name: 'Season Wins', source: 'SportsDB', category: 'sports', unit: 'Wins' },
   { id: 'points', name: 'Avg Points/Game', source: 'SportsDB', category: 'sports', unit: 'Points' },
@@ -460,4 +469,30 @@ export const ENTITIES: Entity[] = [
   { code: 'VGK', name: 'Vegas Golden Knights', category: 'sports', subCategory: 'NHL' },
   { code: 'WSH', name: 'Washington Capitals', category: 'sports', subCategory: 'NHL' },
   { code: 'WPG', name: 'Winnipeg Jets', category: 'sports', subCategory: 'NHL' },
+  { code: 'USA_POL', name: 'United States Politics', category: 'politics' },
+];
+
+export const US_POLITICAL_HISTORY: PoliticalPeriod[] = [
+  { startYear: 1901, endYear: 1909, party: 'Republican', president: 'Theodore Roosevelt', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1909, endYear: 1913, party: 'Republican', president: 'William Howard Taft', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1913, endYear: 1921, party: 'Democrat', president: 'Woodrow Wilson', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1921, endYear: 1923, party: 'Republican', president: 'Warren G. Harding', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1923, endYear: 1929, party: 'Republican', president: 'Calvin Coolidge', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1929, endYear: 1933, party: 'Republican', president: 'Herbert Hoover', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1933, endYear: 1945, party: 'Democrat', president: 'Franklin D. Roosevelt', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1945, endYear: 1953, party: 'Democrat', president: 'Harry S. Truman', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1953, endYear: 1961, party: 'Republican', president: 'Dwight D. Eisenhower', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 1961, endYear: 1963, party: 'Democrat', president: 'John F. Kennedy', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1963, endYear: 1969, party: 'Democrat', president: 'Lyndon B. Johnson', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1969, endYear: 1974, party: 'Republican', president: 'Richard Nixon', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1974, endYear: 1977, party: 'Republican', president: 'Gerald Ford', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1977, endYear: 1981, party: 'Democrat', president: 'Jimmy Carter', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1981, endYear: 1989, party: 'Republican', president: 'Ronald Reagan', senateControl: 'Republican', houseControl: 'Democrat' },
+  { startYear: 1989, endYear: 1993, party: 'Republican', president: 'George H.W. Bush', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 1993, endYear: 2001, party: 'Democrat', president: 'Bill Clinton', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 2001, endYear: 2009, party: 'Republican', president: 'George W. Bush', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 2009, endYear: 2017, party: 'Democrat', president: 'Barack Obama', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 2017, endYear: 2021, party: 'Republican', president: 'Donald Trump', senateControl: 'Republican', houseControl: 'Republican' },
+  { startYear: 2021, endYear: 2025, party: 'Democrat', president: 'Joe Biden', senateControl: 'Democrat', houseControl: 'Democrat' },
+  { startYear: 2025, endYear: 2029, party: 'Republican', president: 'Donald Trump', senateControl: 'Republican', houseControl: 'Republican' },
 ];

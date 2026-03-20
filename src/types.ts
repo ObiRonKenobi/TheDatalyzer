@@ -17,9 +17,19 @@ export interface ChartConfig {
   yAxisLabel: string;
   yAxisLabelRight?: string;
   series: SeriesConfig[];
+  politicalPeriods?: PoliticalPeriod[];
 }
 
-export type DataCategory = 'public' | 'sports' | 'nasa' | 'usgov' | 'owid' | 'tableau';
+export type DataCategory = 'public' | 'sports' | 'nasa' | 'usgov' | 'owid' | 'tableau' | 'politics';
+
+export interface PoliticalPeriod {
+  startYear: number;
+  endYear: number;
+  party: 'Democrat' | 'Republican' | 'Other';
+  president: string;
+  senateControl: 'Democrat' | 'Republican' | 'Split';
+  houseControl: 'Democrat' | 'Republican' | 'Split';
+}
 
 export interface Indicator {
   id: string;

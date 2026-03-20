@@ -12,7 +12,8 @@ import {
   Tooltip,
   ResponsiveContainer,
   Legend,
-  Label
+  Label,
+  ReferenceArea
 } from 'recharts';
 import { Database } from 'lucide-react';
 import { DataPoint, ChartConfig } from '../types';
@@ -125,11 +126,34 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
       </>
     );
 
+    const renderPoliticalPeriods = () => {
+      if (!config.politicalPeriods) return null;
+      return (
+        <>
+          {config.politicalPeriods.map((period, idx) => (
+            <React.Fragment key={`period-${idx}`}>
+              <ReferenceArea
+                {...({
+                  x1: period.startYear,
+                  x2: period.endYear,
+                  fill: period.party === 'Democrat' ? '#3b82f6' : '#ef4444',
+                  fillOpacity: 0.05,
+                  stroke: "none",
+                  yAxisId: "left"
+                } as any)}
+              />
+            </React.Fragment>
+          ))}
+        </>
+      );
+    };
+
     switch (config.type) {
       case 'bar':
         return (
           <BarChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+            {renderPoliticalPeriods()}
             {renderAxes()}
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
@@ -157,6 +181,7 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
               ))}
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+            {renderPoliticalPeriods()}
             {renderAxes()}
             <Tooltip content={<CustomTooltip />} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
@@ -180,6 +205,7 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
         return (
           <LineChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
+            {renderPoliticalPeriods()}
             {renderAxes()}
             <Tooltip content={<CustomTooltip />} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
