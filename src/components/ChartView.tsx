@@ -11,7 +11,8 @@ import {
   CartesianGrid,
   Tooltip,
   ResponsiveContainer,
-  Legend
+  Legend,
+  Label
 } from 'recharts';
 import { Database } from 'lucide-react';
 import { DataPoint, ChartConfig } from '../types';
@@ -34,22 +35,22 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
   }
 
   const formatYAxis = (value: number) => {
-    if (value >= 1000000000000) return `${(value / 1000000000000).toFixed(1)}T`;
-    if (value >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
-    if (value >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (Math.abs(value) >= 1000000000000) return `${(value / 1000000000000).toFixed(1)}T`;
+    if (Math.abs(value) >= 1000000000) return `${(value / 1000000000).toFixed(1)}B`;
+    if (Math.abs(value) >= 1000000) return `${(value / 1000000).toFixed(1)}M`;
+    if (Math.abs(value) < 1 && value !== 0) return value.toFixed(2);
     return value.toLocaleString();
   };
 
   const renderChart = () => {
     const commonProps = {
       data,
-      margin: { top: 10, right: 10, left: 0, bottom: 0 }
+      margin: { top: 20, right: 30, left: 20, bottom: 20 }
     };
 
     const gridColor = "#1e293b"; // slate-800
     const textColor = "#64748b"; // slate-500
-    const tooltipBg = "#0f172a"; // slate-900
-    const tooltipBorder = "#1e293b"; // slate-800
+    const labelColor = "#94a3b8"; // slate-400
 
     const CustomTooltip = ({ active, payload, label }: any) => {
       if (active && payload && payload.length) {
@@ -75,37 +76,61 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
 
     const hasRightAxis = config.series.some(s => s.yAxisId === 'right');
 
+    const renderAxes = () => (
+      <>
+        <XAxis 
+          dataKey="year" 
+          axisLine={false} 
+          tickLine={false} 
+          tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
+          dy={10}
+        >
+          <Label value="YEAR" offset={-10} position="insideBottom" fill={labelColor} fontSize={10} fontWeight={900} />
+        </XAxis>
+        <YAxis 
+          yAxisId="left"
+          axisLine={false} 
+          tickLine={false} 
+          tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
+          tickFormatter={formatYAxis}
+          dx={-10}
+        >
+          <Label 
+            value={config.yAxisLabel} 
+            angle={-90} 
+            position="insideLeft" 
+            style={{ textAnchor: 'middle', fill: labelColor, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }} 
+            offset={0}
+          />
+        </YAxis>
+        {hasRightAxis && (
+          <YAxis 
+            yAxisId="right"
+            orientation="right"
+            axisLine={false} 
+            tickLine={false} 
+            tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
+            tickFormatter={formatYAxis}
+            dx={10}
+          >
+            <Label 
+              value={config.yAxisLabelRight} 
+              angle={90} 
+              position="insideRight" 
+              style={{ textAnchor: 'middle', fill: labelColor, fontSize: 9, fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.05em' }} 
+              offset={0}
+            />
+          </YAxis>
+        )}
+      </>
+    );
+
     switch (config.type) {
       case 'bar':
         return (
           <BarChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-            <XAxis 
-              dataKey="year" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              dy={10}
-            />
-            <YAxis 
-              yAxisId="left"
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              tickFormatter={formatYAxis}
-              dx={-10}
-            />
-            {hasRightAxis && (
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-                tickFormatter={formatYAxis}
-                dx={10}
-              />
-            )}
+            {renderAxes()}
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.03)' }} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
             {config.series.map(s => (
@@ -132,32 +157,7 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
               ))}
             </defs>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-            <XAxis 
-              dataKey="year" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              dy={10}
-            />
-            <YAxis 
-              yAxisId="left"
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              tickFormatter={formatYAxis}
-              dx={-10}
-            />
-            {hasRightAxis && (
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-                tickFormatter={formatYAxis}
-                dx={10}
-              />
-            )}
+            {renderAxes()}
             <Tooltip content={<CustomTooltip />} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
             {config.series.map(s => (
@@ -180,32 +180,7 @@ const ChartView: React.FC<ChartViewProps> = ({ data, config }) => {
         return (
           <LineChart {...commonProps}>
             <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridColor} />
-            <XAxis 
-              dataKey="year" 
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              dy={10}
-            />
-            <YAxis 
-              yAxisId="left"
-              axisLine={false} 
-              tickLine={false} 
-              tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-              tickFormatter={formatYAxis}
-              dx={-10}
-            />
-            {hasRightAxis && (
-              <YAxis 
-                yAxisId="right"
-                orientation="right"
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: textColor, fontSize: 10, fontWeight: 700 }}
-                tickFormatter={formatYAxis}
-                dx={10}
-              />
-            )}
+            {renderAxes()}
             <Tooltip content={<CustomTooltip />} />
             <Legend verticalAlign="top" height={40} iconType="circle" wrapperStyle={{ paddingBottom: '20px', fontSize: '10px', fontWeight: 900, textTransform: 'uppercase', letterSpacing: '0.1em' }} />
             {config.series.map(s => (

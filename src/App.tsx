@@ -14,7 +14,11 @@ import {
   Layers,
   Trophy,
   Zap,
-  Search
+  Search,
+  Rocket,
+  Activity,
+  Flag,
+  PieChart
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { fetchMultiSeriesData, ENTITIES, INDICATORS, fetchCountries } from './services/dataService';
@@ -55,9 +59,14 @@ export default function App() {
 
   // Filtered lists based on category and league
   const filteredEntities = useMemo(() => {
-    let base = category === 'public' 
-      ? (countries.length > 0 ? countries : ENTITIES.filter(e => e.category === 'public'))
-      : ENTITIES.filter(e => e.category === 'sports' && e.subCategory === selectedLeague);
+    let base: Entity[] = [];
+    if (category === 'public') {
+      base = countries.length > 0 ? countries : ENTITIES.filter(e => e.category === 'public');
+    } else if (category === 'sports') {
+      base = ENTITIES.filter(e => e.category === 'sports' && e.subCategory === selectedLeague);
+    } else {
+      base = ENTITIES.filter(e => e.category === category);
+    }
     
     if (entitySearch) {
       const search = entitySearch.toLowerCase();
@@ -86,9 +95,14 @@ export default function App() {
 
   // Reset selections when category or league changes
   useEffect(() => {
-    const newEntities = category === 'public' 
-      ? (countries.length > 0 ? countries : ENTITIES.filter(e => e.category === 'public'))
-      : ENTITIES.filter(e => e.category === 'sports' && e.subCategory === selectedLeague);
+    let newEntities: Entity[] = [];
+    if (category === 'public') {
+      newEntities = countries.length > 0 ? countries : ENTITIES.filter(e => e.category === 'public');
+    } else if (category === 'sports') {
+      newEntities = ENTITIES.filter(e => e.category === 'sports' && e.subCategory === selectedLeague);
+    } else {
+      newEntities = ENTITIES.filter(e => e.category === category);
+    }
     
     const newIndicators = INDICATORS.filter(i => i.category === category);
     
@@ -97,11 +111,15 @@ export default function App() {
     setComparisonMode('entity');
     
     // Reset time range based on category
-    if (category === 'public') {
-      setStartYear(1990);
+    if (category === 'public' || category === 'owid' || category === 'nasa') {
+      setStartYear(1900);
     } else {
       setStartYear(new Date().getFullYear() - 15);
     }
+    
+    // Clear search when switching categories
+    setEntitySearch('');
+    setIndicatorSearch('');
   }, [category, selectedLeague, countries]);
 
   const loadData = useCallback(async () => {
@@ -150,7 +168,7 @@ export default function App() {
     
     if (comparisonMode === 'entity') {
       selectedEntityCodes.forEach((code, index) => {
-        const entity = ENTITIES.find(e => e.code === code);
+        const entity = ENTITIES.find(e => e.code === code) || countries.find(c => c.code === code);
         series.push({
           key: code,
           name: entity?.name || code,
@@ -174,14 +192,24 @@ export default function App() {
       });
     }
 
-    const indicatorName = INDICATORS.find(i => i.id === selectedIndicatorIds[0])?.name;
-    const entityName = ENTITIES.find(e => e.code === selectedEntityCodes[0])?.name;
+    const indicator = INDICATORS.find(i => i.id === selectedIndicatorIds[0]);
+    const indicatorName = indicator?.name;
+    const indicatorUnit = indicator?.unit ? ` (${indicator.unit})` : '';
+    
+    const entityName = ENTITIES.find(e => e.code === selectedEntityCodes[0])?.name || countries.find(c => c.code === selectedEntityCodes[0])?.name;
+
+    if (comparisonMode === 'indicator' && selectedIndicatorIds.length > 1) {
+      const secondIndicator = INDICATORS.find(i => i.id === selectedIndicatorIds[1]);
+      if (secondIndicator) {
+        yAxisLabelRight = `${secondIndicator.name}${secondIndicator.unit ? ` (${secondIndicator.unit})` : ''}`;
+      }
+    }
 
     return {
       type: chartType,
       title: comparisonMode === 'entity' ? `${indicatorName} Comparison` : `${entityName} Analysis`,
       xAxisLabel: 'Year',
-      yAxisLabel: indicatorName || 'Value',
+      yAxisLabel: indicatorName ? `${indicatorName}${indicatorUnit}` : 'Value',
       yAxisLabelRight,
       series
     };
@@ -249,21 +277,21 @@ export default function App() {
               <Database className="w-3 h-3" />
               Data Domain
             </div>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               <button
                 onClick={() => setCategory('public')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
                   category === 'public' 
                     ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
                 }`}
               >
                 <Globe className="w-3.5 h-3.5" />
-                Public
+                World Bank
               </button>
               <button
                 onClick={() => setCategory('sports')}
-                className={`flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all border ${
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
                   category === 'sports' 
                     ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
                     : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
@@ -271,6 +299,50 @@ export default function App() {
               >
                 <Trophy className="w-3.5 h-3.5" />
                 Sports
+              </button>
+              <button
+                onClick={() => setCategory('nasa')}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                  category === 'nasa' 
+                    ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Rocket className="w-3.5 h-3.5" />
+                NASA
+              </button>
+              <button
+                onClick={() => setCategory('owid')}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                  category === 'owid' 
+                    ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Activity className="w-3.5 h-3.5" />
+                OWID
+              </button>
+              <button
+                onClick={() => setCategory('usgov')}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                  category === 'usgov' 
+                    ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <Flag className="w-3.5 h-3.5" />
+                Data.gov
+              </button>
+              <button
+                onClick={() => setCategory('tableau')}
+                className={`flex flex-col items-center justify-center gap-1 py-2.5 rounded-xl text-[10px] font-bold transition-all border ${
+                  category === 'tableau' 
+                    ? 'bg-emerald-500 border-emerald-400 text-slate-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]' 
+                    : 'bg-slate-800 border-slate-700 text-slate-400 hover:border-slate-600'
+                }`}
+              >
+                <PieChart className="w-3.5 h-3.5" />
+                Tableau
               </button>
             </div>
           </section>

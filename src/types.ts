@@ -19,13 +19,14 @@ export interface ChartConfig {
   series: SeriesConfig[];
 }
 
-export type DataCategory = 'public' | 'sports';
+export type DataCategory = 'public' | 'sports' | 'nasa' | 'usgov' | 'owid' | 'tableau';
 
 export interface Indicator {
   id: string;
   name: string;
   source: string;
   category: DataCategory;
+  unit?: string;
 }
 
 export interface Entity {
